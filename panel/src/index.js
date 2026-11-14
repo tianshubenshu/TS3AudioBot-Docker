@@ -1,6 +1,6 @@
 import { createApp } from "./app.js";
 import { config, runtimeWarnings } from "./config.js";
-import { ensureAdmin, migrate, pool } from "./db.js";
+import { ensureAdmin, ensureSingleDefaults, migrate, pool } from "./db.js";
 
 console.log("[panel] Starting");
 
@@ -10,6 +10,7 @@ let startupError = null;
 try {
   await migrate();
   const created = await ensureAdmin();
+  if (process.env.SINGLE_CONTAINER === "1") await ensureSingleDefaults();
   if (created.created) {
     console.warn(`[panel] Created admin account. User: ${created.username}`);
     if (created.generatedPassword) {

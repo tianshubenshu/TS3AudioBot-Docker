@@ -6,19 +6,19 @@
 
 - 机器人容器负责连接 TeamSpeak、获取音频并发送到频道。
 - 网页面板负责账户、机器人控制和电台管理；面板数据存储在 MariaDB 中。
-- 机器人连接设置及身份文件存放在 Docker 数据卷 `ts3audiobot-data` 中。
+- 机器人连接设置、身份文件和原版使用的 LiteDB 数据存放在持久化数据卷中。单容器的面板数据另存为 SQLite 文件；两者都是本地文件，不需要独立数据库服务。
 
-只需要机器人时可使用 `docker-compose.yml`；需要网页面板时使用 `docker-compose.panel.yml`，它同时启动机器人、面板和 MariaDB。已有 MariaDB 的用户可参考 `docker-compose.panel-external-db.yml`。完整配置和安全说明请参阅 [英文 README](README.md)。
+推荐使用下面的单容器方案：机器人、中文面板和 SQLite 在同一个容器内。原有多容器和外部 MariaDB 配置仍然保留，参阅 [英文 README](README.md)。
 
 ## 首次部署面板
 
-1. 克隆本仓库，进入仓库目录，并复制环境配置：`cp panel/.env.example .env`。
-2. 编辑 `.env`，设置 `PANEL_ADMIN_PASSWORD`、`PANEL_DB_PASSWORD`、`PANEL_DB_ROOT_PASSWORD` 和随机的 `PANEL_TOKEN_KEY`。
-3. 使用 `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build` 构建并启动中文版面板。已有外部数据库时，将第一个文件换成 `docker-compose.panel-external-db.yml`。
-4. 打开 `http://服务器地址:8080`，使用 `admin` 和设置的面板密码登录。
-5. 在“概览”添加实例，API 地址填 `http://ts3audiobot:58913`。添加或关联机器人，在“连接”填写 TeamSpeak 服务器地址并启动。
+1. 克隆本仓库并进入仓库目录。
+2. 执行 `docker compose -f docker-compose.single.yml up -d --build`。首次构建需要下载依赖，可能需要一些时间。
+3. 执行 `docker compose -f docker-compose.single.yml logs ts3audiobot`，查找首次启动时生成的管理员密码。用户名为 `admin`。妥善保管日志和密码。
+4. 打开 `http://服务器地址:8080` 登录，然后在“账户”中修改密码。
+5. 面板会自动添加本机实例和 `default` 机器人。打开机器人，在“连接”中填写 TeamSpeak 服务器地址并启动。
 
-如需使用聊天中的电台命令，在 `.env` 设置独立的 `PANEL_RADIO_SECRET`，例如运行 `openssl rand -hex 32` 生成并填入结果；不要与其他密钥共用。然后重新运行第 3 步，让面板和机器人使用同一密钥。密钥为空或不足 32 字节时，电台查询会关闭。
+单容器模式自动生成电台通信密钥，无须设置 `PANEL_RADIO_SECRET` 或单独启动数据库。也可以在首次启动前通过 `.env` 设置 `PANEL_ADMIN_PASSWORD`（至少 10 个字符）；账户创建后，再改此变量不会重置密码。
 
 ## 添加电台
 
@@ -30,6 +30,6 @@
 
 ## 保存和更新
 
-面板数据保存在 MariaDB 数据卷中。更新前参照 [英文 README 的备份步骤](README.md#update)备份数据库；机器人配置位于另一个数据卷。`docker compose down` 会保留数据，`down -v` 会删除数据卷。
+单容器的面板 SQLite 数据库、机器人配置、身份和面板密钥都在 `ts3audiobot-single-data` 数据卷内。备份前先停止容器，备份整个数据卷；更新时使用 `docker compose -f docker-compose.single.yml up -d --build`。`down` 会保留数据，`down -v` 会删除数据卷。单容器使用独立数据卷，不会自动导入旧 MariaDB 面板数据。
 
-默认 Compose 拉取项目配置的远程镜像；上面的附加配置会从本仓库源码构建中文面板。之后启动或更新时请继续指定两个配置文件，并保持 Compose 项目名称不变，以沿用已有数据卷。机器人 API 的 58913 端口默认不对宿主机开放，请保持该设置。
+单容器配置从本仓库源码构建镜像。更新时保持 Compose 项目名称不变，以沿用已有数据卷。机器人 API 只绑定容器内部的 `127.0.0.1:58913`，请保持该设置；如果面板开放到公网，请使用 HTTPS 和强密码。

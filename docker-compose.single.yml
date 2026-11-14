@@ -1,0 +1,27 @@
+services:
+  ts3audiobot:
+    image: ts3audiobot-single-zh:local
+    build:
+      context: .
+      dockerfile: Dockerfile.single
+    container_name: ts3audiobot-single
+    restart: unless-stopped
+    environment:
+      ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:-}
+      TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
+      COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-auto}
+    ports:
+      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
+    volumes:
+      - ts3audiobot-single-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=256m,exec
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  ts3audiobot-single-data:

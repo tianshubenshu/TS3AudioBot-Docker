@@ -2,6 +2,10 @@
 
 [简体中文说明](README.zh-CN.md)
 
+## Single-container setup
+
+Run `docker compose -f docker-compose.single.yml up -d --build` to build and start the bot and panel together. The panel uses SQLite in the same persistent volume as the bot; no separate database or radio secret configuration is required. On first start the panel logs a generated admin password; retrieve it with `docker compose -f docker-compose.single.yml logs ts3audiobot` and change it after signing in. Set `PANEL_ADMIN_PASSWORD` before first startup to choose one instead. The local instance and default bot are registered automatically. The bot API binds to container loopback, and port 8080 serves the panel. Back up the whole data volume while the container is stopped. This setup starts with a new database; it does not import an existing MariaDB database. See the [Chinese guide](README.zh-CN.md).
+
 A music bot for TeamSpeak 3, ready to run in Docker, with a web panel to control it from the browser.
 
 It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker image and adds a panel where you can play music and radio streams, manage several bots, and set up who may use them.
@@ -89,7 +93,7 @@ To give other people access, add accounts under **Users** or create an invite li
 
 **Whisper:** On **Connection**, choose **Whisper** to play only to the clients and channels you tick in the lists. Choose **Voice** to play to everyone in the bot's channel.
 
-**Chinese chat commands:** Build the local bot and panel with `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build`. Set `PANEL_RADIO_SECRET` in `.env` to an independent random secret of at least 32 bytes (for example, `openssl rand -hex 32`) and recreate both containers. `!播放 <url>`, `!暂停`, `!停止`, `!下一首`, and `!上一首` use the equivalent English command permissions. `!列出电台 [page]` lists only shared stations, and `!播放电台 <exact name>` plays one; duplicate names must be renamed. The radio bridge remains disabled when the secret is missing or too short. See [the Chinese guide](README.zh-CN.md).
+**Chinese chat commands:** After configuring `.env`, run `sh scripts/setup-radio-secret.sh` to generate a radio secret locally without overwriting an existing one. Then build the local bot and panel with `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build`. `!播放 <url>`, `!暂停`, `!停止`, `!下一首`, and `!上一首` use the equivalent English command permissions. `!列出电台 [page]` lists only shared stations, and `!播放电台 <exact name>` plays one; duplicate names must be renamed. The radio bridge remains disabled when the secret is missing or too short. See [the Chinese guide](README.zh-CN.md).
 
 ## Update
 

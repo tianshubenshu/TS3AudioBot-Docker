@@ -5,7 +5,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- A single-container bot and panel deployment using SQLite, with automatic internal secrets and a pre-registered local bot
 - Chinese chat commands for playback and shared radio stations, with an authenticated bot-to-panel radio lookup
+- A local setup script generates the radio secret without overwriting an existing value
 - The panel supports Simplified Chinese, selected automatically for Chinese browser languages or manually from the language menu
 - `docker-compose.zh.yml` builds the bot and panel from the local checkout when used with a panel Compose file
 

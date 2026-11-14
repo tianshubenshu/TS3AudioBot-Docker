@@ -22,6 +22,8 @@ Three Compose files. Each one is a complete stack and starts on its own:
 | `docker-compose.panel.yml` | bot, panel, MariaDB 11.4 |
 | `docker-compose.panel-external-db.yml` | bot, panel, external MariaDB |
 
+`docker-compose.single.yml` is a separate one-container option: `Dockerfile.single` bundles the bot and panel, uses SQLite in `/data`, and starts both through `scripts/start-single.sh`. The startup script generates an ephemeral radio bridge secret and a persistent encryption key in the data volume. The bot API must bind to loopback. The single-container SQLite database is independent of MariaDB and does not import its data.
+
 Images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:${IMAGE_TAG:-main}`. After a publish, the workflow deletes older GHCR versions. It keeps `main`, `develop`, `master`, release tags, the three newest `sha-` tags, and the untagged platform manifests those kept images reference.
 
 ## Bot image
