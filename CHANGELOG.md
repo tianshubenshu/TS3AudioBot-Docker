@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Security
 - The bot uses FFmpeg for thumbnail conversion instead of ImageSharp; animated images become static thumbnails
+
 - Stream, radio, and startup addresses can no longer point at the bot API. `localhost`, `127.x`, `::1`, port 58913, and the host of every registered instance are refused, because the bot would fetch them with full API rights
 - The song source, title, and queue on Playback and in the player bar no longer show the user name and password of a saved station. Every shown address also hides the values of query parameters such as `token`, `key`, or `password`
 - Sign-in allows at most 30 attempts per 15 minutes from one address across all user names, on top of the 8 per name. Failed sign-ins with unknown names no longer fill the audit log. Behind a proxy without `PANEL_TRUST_PROXY=1` the panel logs a warning
@@ -39,6 +40,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
 
 ### Fixed
+- The single-container image includes the Node runtime library libatomic1; Tencent Cloud users can opt into the internal Ubuntu mirror at build time
 - Connection picks up new channels and clients sooner. The channel list for Move now, Default channel, and Whisper is read again as soon as the browser window gets the focus back and right after a move, not only every 10 seconds. A bot that was offline when the page opened, or that connects or drops later, now gets its lists and status without reloading the page
 - Text that should stay on one line (status pills, buttons, table cells, the breadcrumb, the bot switcher) no longer wraps. A colour token rename had broken every `white-space` rule
 - On Connection, turning channel commander off no longer reloads the page of a bot opened in the meantime, and a slow action no longer shows its note or error on the next bot
