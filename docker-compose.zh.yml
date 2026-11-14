@@ -1,0 +1,7 @@
+# Build the panel from this checkout so the installed image includes local changes.
+services:
+  panel:
+    image: ts3audiobot-panel-zh:local
+    build:
+      context: ./panel
+    pull_policy: build

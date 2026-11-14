@@ -552,8 +552,15 @@ describe("language", () => {
     assert.equal(languageChoice("DE"), "de");
     assert.equal(languageChoice(""), "auto");
     assert.equal(languageChoice("fr"), "auto");
-    assert.deepEqual(languages.map((item) => item.id), ["en", "de"]);
-    assert.deepEqual(Object.keys(catalogs), ["de"]);
+    assert.deepEqual(languages.map((item) => item.id), ["en", "de", "zh"]);
+    assert.deepEqual(Object.keys(catalogs), ["de", "zh"]);
+    assert.equal(languageFromHeader("zh-CN,zh;q=0.9"), "zh");
+    assert.equal(resolveLanguage("en-US", "zh"), "zh");
+    assert.equal(translate("zh", "Playing {name}", { name: "电台" }), "正在播放 电台");
+    for (const [source, translation] of Object.entries(catalogs.zh)) {
+      const placeholders = (text) => [...text.matchAll(/\{[A-Za-z0-9_]+\}/g)].map((item) => item[0]).sort();
+      assert.deepEqual(placeholders(translation), placeholders(source), source);
+    }
     assert.equal(translate("de", "Sign in"), "Anmelden");
     assert.equal(translate("en", "Sign in"), "Sign in");
     assert.equal(translate("de", "{label} is invalid", { label: "Password" }), "Passwort ist ungültig");
@@ -825,7 +832,7 @@ describe("panel paths and failures", () => {
       assert.equal(forcedBody.lang, "en");
       assert.equal(forcedBody.choice, "en");
       assert.equal(forcedBody.phrases["Sign in"], undefined);
-      assert.equal(forcedBody.languages.map((item) => item.id).join(","), "en,de");
+      assert.equal(forcedBody.languages.map((item) => item.id).join(","), "en,de,zh");
       const health = await fetch(`http://127.0.0.1:${port}/healthz`);
       assert.equal(health.status, 503);
       assert.match(await health.text(), /database is unreachable/i);
