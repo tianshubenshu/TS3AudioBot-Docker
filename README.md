@@ -2,6 +2,10 @@
 
 [简体中文说明](README.zh-CN.md)
 
+## Single-container setup
+
+Run `docker compose -f docker-compose.single.yml up -d --build` to build and start the bot and panel together. The panel uses SQLite in the same persistent volume as the bot; no separate database or radio secret configuration is required. On first start the panel logs a generated admin password; retrieve it with `docker compose -f docker-compose.single.yml logs ts3audiobot` and change it after signing in. Set `PANEL_ADMIN_PASSWORD` before first startup to choose one instead. The local instance and default bot are registered automatically. The bot API binds to container loopback, and port 8080 serves the panel. Back up the whole data volume while the container is stopped. This setup starts with a new database; it does not import an existing MariaDB database. See the [Chinese guide](README.zh-CN.md).
+
 A music bot for TeamSpeak 3, ready to run in Docker, with a web panel to control it from the browser.
 
 It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker image and adds a panel where you can play music and radio streams, manage several bots, and set up who may use them.
@@ -88,6 +92,8 @@ To give other people access, add accounts under **Users** or create an invite li
 | **Account** | Change your own password. |
 
 **Whisper:** On **Connection**, choose **Whisper** to play only to the clients and channels you tick in the lists. Choose **Voice** to play to everyone in the bot's channel.
+
+**Chinese chat commands:** After configuring `.env`, run `sh scripts/setup-radio-secret.sh` to generate a radio secret locally without overwriting an existing one. Then build the local bot and panel with `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build`. `!播放 <url>`, `!暂停`, `!停止`, `!下一首`, and `!上一首` use the equivalent English command permissions. `!列出电台 [page]` lists only shared stations, and `!播放电台 <exact name>` plays one; duplicate names must be renamed. The radio bridge remains disabled when the secret is missing or too short. See [the Chinese guide](README.zh-CN.md).
 
 ## Update
 
@@ -224,7 +230,7 @@ docker build -t ts3audiobot-docker:local .
 docker build -t ts3audiobot-panel:local ./panel
 ```
 
-The bot image builds the `develop` branch of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot) (set `BOT_REF` for another ref), because upstream does not publish that build. It runs `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK and starts `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`, with ffmpeg, libopus, and `yt-dlp`. It does not include the upstream web interface.
+The bot image builds a pinned revision of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot), applies the Chinese command changes, and builds with the .NET 10 SDK. An alternate `BOT_REF` must be compatible with the patch. The runtime includes ffmpeg, libopus, and `yt-dlp`. It does not include the upstream web interface.
 
 **Panel.** Node.js, Express, MariaDB, and a React UI built with Vite. To work on it, from `panel/`: `npm install`, then `npm start` and `npm run client`, and open `http://127.0.0.1:5173`. `npm run build` writes the files the image serves. To add a language, add `panel/src/locales/<id>.js` and register it in `panel/src/i18n.js`.
 

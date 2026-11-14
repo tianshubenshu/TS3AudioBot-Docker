@@ -1,0 +1,12 @@
+.git
+.github
+.env
+.env.*
+data
+panel/node_modules
+panel/dist
+config/*.db
+config/*.log
+config/logs
+config/plugins
+docs

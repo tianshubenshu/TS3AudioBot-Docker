@@ -5,10 +5,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- A single-container bot and panel deployment using SQLite, with automatic internal secrets and a pre-registered local bot
+- Chinese chat commands for playback and shared radio stations, with an authenticated bot-to-panel radio lookup
+- A local setup script generates the radio secret without overwriting an existing value
 - The panel supports Simplified Chinese, selected automatically for Chinese browser languages or manually from the language menu
-- `docker-compose.zh.yml` builds the panel from the local checkout when used with a panel Compose file
+- `docker-compose.zh.yml` builds the bot and panel from the local checkout when used with a panel Compose file
 
 ### Security
+- The bot build uses ImageSharp 3.2.0 to address upstream package advisories affecting 3.1.12
 - Stream, radio, and startup addresses can no longer point at the bot API. `localhost`, `127.x`, `::1`, port 58913, and the host of every registered instance are refused, because the bot would fetch them with full API rights
 - The song source, title, and queue on Playback and in the player bar no longer show the user name and password of a saved station. Every shown address also hides the values of query parameters such as `token`, `key`, or `password`
 - Sign-in allows at most 30 attempts per 15 minutes from one address across all user names, on top of the 8 per name. Failed sign-ins with unknown names no longer fill the audit log. Behind a proxy without `PANEL_TRUST_PROXY=1` the panel logs a warning

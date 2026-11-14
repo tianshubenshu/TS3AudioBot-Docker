@@ -5,8 +5,10 @@ import { HttpError } from "./errors.js";
 import { hashPassword } from "./passwords.js";
 import { applyMigrations } from "./schema.js";
 import { parsePassword, parseUsername } from "./validate.js";
+import { createSqlitePool } from "./sqlite-pool.js";
 
-export const pool = mysql.createPool({
+const useSqlite = process.env.DATABASE_ENGINE === "sqlite";
+export const pool = useSqlite ? createSqlitePool(process.env.SQLITE_PATH || "/data/panel.sqlite3") : mysql.createPool({
   ...databaseConfig(),
   waitForConnections: true,
   connectionLimit: 10,
@@ -17,7 +19,7 @@ export const pool = mysql.createPool({
   decimalNumbers: true,
 });
 
-pool.on("connection", (connection) => {
+if (!useSqlite) pool.on("connection", (connection) => {
   connection.query("SET time_zone = '+00:00'", () => {});
 });
 
@@ -41,8 +43,32 @@ export async function waitForDatabase(attempts = 30) {
 
 export async function migrate() {
   await waitForDatabase();
-  await applyMigrations(pool);
+  if (useSqlite) await pool.migrate();
+  else await applyMigrations(pool);
   await pool.query("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP(3)");
+}
+
+// Seed only once, in the same transaction as the marker so an interrupted first boot can retry.
+export async function ensureSingleDefaults() {
+  if (!useSqlite) throw new Error("Single-container setup requires SQLite.");
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query("CREATE TABLE IF NOT EXISTS single_setup (id INTEGER PRIMARY KEY)");
+    const [markers] = await connection.query("SELECT id FROM single_setup WHERE id = 1");
+    if (!markers.length) {
+      const [existing] = await connection.query("SELECT id FROM instances LIMIT 1");
+      if (!existing.length) {
+        const [instance] = await connection.query("INSERT INTO instances (name, base_url, enabled) VALUES (?, ?, 1)", ["本机", "http://127.0.0.1:58913"]);
+        await connection.query("INSERT INTO ts_bots (instance_id, name, label, template) VALUES (?, ?, ?, ?)", [instance.insertId, "default", "default", "default"]);
+      }
+      await connection.query("INSERT INTO single_setup (id) VALUES (1)");
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally { connection.release(); }
 }
 
 // A token that cannot be decrypted fails only the calls to that bot API, not every list that shows it.

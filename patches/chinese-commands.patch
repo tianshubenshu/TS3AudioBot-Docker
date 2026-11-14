@@ -1,0 +1,196 @@
+diff --git a/TS3AudioBot.Tests/BotCommandTests.cs b/TS3AudioBot.Tests/BotCommandTests.cs
+index 18d7634..c220035 100644
+--- a/TS3AudioBot.Tests/BotCommandTests.cs
++++ b/TS3AudioBot.Tests/BotCommandTests.cs
+@@ -22,6 +22,25 @@ namespace TS3AudioBot.Tests;
+ 	Justification = "Unit tests here are for non-async operations")]
+ public class BotCommandTests
+ {
++	[Fact]
++	public void ChineseCommandNamesKeepTheOriginalRights()
++	{
++		var commands = CommandManager.GetBotCommands(null, typeof(MainCommands)).ToArray();
++		Assert.All(commands.Where(c => c.InvokeName == "播放"), c => Assert.Equal("cmd.play", c.RequiredRight));
++		Assert.Contains(commands, c => c.InvokeName == "播放电台" && c.RequiredRight == "cmd.play");
++		Assert.Contains(commands, c => c.InvokeName == "列出电台" && c.RequiredRight == "cmd.song");
++		var manager = new CommandManager(null);
++		Assert.True(manager.RegisterAlias("中文测试", "!print ok").Ok);
++	}
++
++	[Fact]
++	public async Task ChineseRadioCommandIsResolved()
++	{
++		var info = Utils.GetExecInfo("ic3");
++		var result = await CommandManager.Execute(info, "!列出电台 0");
++		Assert.Equal("页码无效。", result.AsString());
++		Assert.NotEqual("页码无效。", (await CommandManager.Execute(info, "!列出电台")).AsString());
++	}
+ 	private static string? CmdSync(ExecutionInformation info, string command)
+ 	{
+ 		var valueTask = CommandManager.Execute(info, command);
+diff --git a/TS3AudioBot/ChineseCommands.cs b/TS3AudioBot/ChineseCommands.cs
+new file mode 100644
+index 0000000..027dbd5
+--- /dev/null
++++ b/TS3AudioBot/ChineseCommands.cs
+@@ -0,0 +1,97 @@
++using System;
++using System.Linq;
++using System.Net.Http;
++using System.Net.Http.Headers;
++using System.Text.Json;
++using System.Threading.Tasks;
++using TS3AudioBot.Audio;
++using TS3AudioBot.CommandSystem;
++using TS3AudioBot.Dependency;
++using TS3AudioBot.Config;
++using TS3AudioBot.Helper.Json;
++using TS3AudioBot.Sessions;
++using TS3AudioBot.Web.Api;
++
++namespace TS3AudioBot;
++
++public static partial class MainCommands
++{
++	private static readonly HttpClient RadioClient = new() { Timeout = TimeSpan.FromSeconds(5) };
++
++	[Command("播放", "cmd_play_help")]
++	public static Task ChinesePlay(PlayManager manager, Player player, InvokerData invoker)
++		=> CommandPlay(manager, player, invoker);
++
++	[Command("播放", "cmd_play_help")]
++	public static Task ChinesePlay(PlayManager manager, InvokerData invoker, string url, params string[] attributes)
++		=> CommandPlay(manager, invoker, url, attributes);
++
++	[Command("暂停", "cmd_pause_help")]
++	public static void ChinesePause(Player player) => CommandPause(player);
++
++	[Command("停止", "cmd_stop_help")]
++	public static void ChineseStop(PlayManager manager) => CommandStop(manager);
++
++	[Command("下一首", "cmd_next_help")]
++	public static Task ChineseNext(PlayManager manager, InvokerData invoker) => CommandNext(manager, invoker);
++
++	[Command("上一首", "cmd_previous_help")]
++	public static Task ChinesePrevious(PlayManager manager, InvokerData invoker) => CommandPrevious(manager, invoker);
++
++	[Command("音量", "cmd_volume_help")]
++	public static JsonValue<float> ChineseVolume(Player player) => CommandVolume(player);
++
++	[Command("音量", "cmd_volume_help")]
++	public static void ChineseVolume(ExecutionInformation info, Player player, CallerInfo caller, ConfBot config, string volume, UserSession? session = null)
++		=> CommandVolume(info, player, caller, config, volume, session);
++
++	[Command("列出电台", "cmd_song_help")]
++	public static async Task<string> ChineseRadioList(int? requestedPage = null)
++	{
++		int page = requestedPage ?? 1;
++		if (page < 1 || page > 10000) return "页码无效。";
++		using var result = await FetchRadio("?page=" + page);
++		if (result is null) return "无法连接电台列表，请检查面板和电台命令配置。";
++		var root = result.RootElement;
++		int total = root.GetProperty("total").GetInt32();
++		var stations = root.GetProperty("stations").EnumerateArray().Select(x => x.GetProperty("name").GetString()).ToArray();
++		if (stations.Length == 0) return total == 0 ? "没有共享电台。" : "这一页没有电台。";
++		return $"共享电台（第 {page} 页，共 {total} 个）：\n" + string.Join("\n", stations) + "\n使用 !播放电台 名称，下一页：!列出电台 " + (page + 1);
++	}
++
++	[Command("播放电台", "cmd_play_help")]
++	public static async Task<string> ChineseRadioPlay(PlayManager manager, InvokerData invoker, string name)
++	{
++		if (string.IsNullOrWhiteSpace(name)) return "请输入电台名称。";
++		using var result = await FetchRadio("?name=" + Uri.EscapeDataString(name.Trim()));
++		if (result is null) return "无法连接电台列表，请检查面板和电台命令配置。";
++		var root = result.RootElement;
++		var status = root.GetProperty("status").GetString();
++		if (status == "not_found") return "找不到该共享电台，请检查名称。";
++		if (status == "ambiguous") return "有多个同名共享电台，请先在面板中修改名称。";
++		if (status != "ok") return "无法读取电台。";
++		string? url = root.GetProperty("url").GetString();
++		if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)) return "电台地址无效。";
++		await manager.Play(invoker, url!);
++		return "正在播放电台：" + name;
++	}
++
++	private static async Task<JsonDocument?> FetchRadio(string query)
++	{
++		var token = System.Environment.GetEnvironmentVariable("PANEL_RADIO_SECRET");
++		var endpoint = System.Environment.GetEnvironmentVariable("PANEL_RADIO_URL");
++		if (string.IsNullOrEmpty(token) || token.Length < 32 || string.IsNullOrEmpty(endpoint)) return null;
++		try
++		{
++			using var request = new HttpRequestMessage(HttpMethod.Get, endpoint.TrimEnd('/') + "/internal/radio" + query);
++			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
++			using var response = await RadioClient.SendAsync(request);
++			response.EnsureSuccessStatusCode();
++			return JsonDocument.Parse(await response.Content.ReadAsStringAsync());
++		}
++		catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
++		{
++			return null;
++		}
++	}
++}
+diff --git a/TS3AudioBot/CommandSystem/BotCommand.cs b/TS3AudioBot/CommandSystem/BotCommand.cs
+index b143283..e5dc874 100644
+--- a/TS3AudioBot/CommandSystem/BotCommand.cs
++++ b/TS3AudioBot/CommandSystem/BotCommand.cs
+@@ -55,7 +55,18 @@ public BotCommand(CommandBuildInfo buildInfo) : base(buildInfo.Method, buildInfo
+ 	{
+ 		InvokeName = buildInfo.CommandData.CommandNameSpace;
+ 		helpLookupName = buildInfo.CommandData.OverrideHelpName ?? ("cmd_" + InvokeName.Replace(" ", "_") + "_help");
+-		requiredRights = ["cmd." + string.Join(".", InvokeName.Split(' '))];
++		var rightsName = InvokeName switch
++		{
++			"播放" or "播放电台" => "play",
++			"列出电台" => "song",
++			"暂停" => "pause",
++			"停止" => "stop",
++			"下一首" => "next",
++			"上一首" => "previous",
++			"音量" => "volume",
++			_ => string.Join(".", InvokeName.Split(' ')),
++		};
++		requiredRights = ["cmd." + rightsName];
+ 		UsageList = buildInfo.UsageList;
+ 		// Serialization
+ 		Return = UnwrapReturnType(CommandReturn).Name;
+diff --git a/TS3AudioBot/CommandSystem/CommandManager.cs b/TS3AudioBot/CommandSystem/CommandManager.cs
+index ee1df85..9182797 100644
+--- a/TS3AudioBot/CommandSystem/CommandManager.cs
++++ b/TS3AudioBot/CommandSystem/CommandManager.cs
+@@ -29,7 +29,7 @@ namespace TS3AudioBot.CommandSystem;
+ public partial class CommandManager
+ {
+ 	private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
+-	[GeneratedRegex(@"^[a-z\d]+( [a-z\d]+)*$")]
++	[GeneratedRegex(@"^[a-z\d\u4e00-\u9fff]+( [a-z\d\u4e00-\u9fff]+)*$")]
+ 	private static partial Regex CommandNamespaceValidatorReg { get; }
+ 
+ 	private readonly Dictionary<string, AliasCommand> aliasPaths = [];
+diff --git a/TS3AudioBot/MainCommands.cs b/TS3AudioBot/MainCommands.cs
+index bc71553..2f0a45e 100644
+--- a/TS3AudioBot/MainCommands.cs
++++ b/TS3AudioBot/MainCommands.cs
+@@ -48,7 +48,7 @@
+ 
+ namespace TS3AudioBot;
+ 
+-public static class MainCommands
++public static partial class MainCommands
+ {
+ 	internal static ICommandBag Bag { get; } = new MainCommandsBag();
+ 
+diff --git a/TS3AudioBot/TS3AudioBot.csproj b/TS3AudioBot/TS3AudioBot.csproj
+index e25f836..81a4e42 100644
+--- a/TS3AudioBot/TS3AudioBot.csproj
++++ b/TS3AudioBot/TS3AudioBot.csproj
+@@ -46,7 +46,7 @@
+ 		</PackageReference>
+ 		<PackageReference Include="Nett" Version="0.15.0" />
+ 		<PackageReference Include="PlaylistsNET" Version="1.4.1" />
+-		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
++		<PackageReference Include="SixLabors.ImageSharp" Version="3.2.0" />
+ 	</ItemGroup>
+ 
+ 	<ItemGroup>

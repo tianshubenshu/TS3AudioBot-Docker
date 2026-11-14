@@ -1,6 +1,6 @@
 import { createApp } from "./app.js";
 import { config, runtimeWarnings } from "./config.js";
-import { ensureAdmin, migrate, pool } from "./db.js";
+import { ensureAdmin, ensureSingleDefaults, migrate, pool } from "./db.js";
 
 console.log("[panel] Starting");
 
@@ -17,6 +17,7 @@ try {
       console.warn("[panel] Change it under Account after signing in.");
     }
   }
+  if (process.env.SINGLE_CONTAINER === "1") await ensureSingleDefaults();
 } catch (err) {
   startupError = err;
   console.error("[panel] Startup failed:", err.message);

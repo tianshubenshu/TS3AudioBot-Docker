@@ -72,6 +72,8 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 
 ### JSON API
 
+The bot-only `GET /internal/radio` bridge is separate from the session API. It requires a shared `PANEL_RADIO_SECRET` of at least 32 bytes, returns only shared stations, and does not expose URLs in the list. It resolves an exact name only if unique. The bot uses the same secret over the internal Compose network; the endpoint is disabled without a strong secret. Never expose private stations through it.
+
 `src/api.js` mounts these groups. Writes need the session and `X-CSRF-Token`, except `/login` and `/register`, which run before the session check. The router answers only JSON. A signed-out request gets 401, never a redirect, and `client/src/api.js` then returns the UI to sign-in. Sign out clears the local session even when the request fails.
 
 - `/session`, `/login`, `/register`, `/logout`, `/account`, `/account/password`
@@ -95,6 +97,8 @@ Passwords are not stored in the panel database. A new account may have no passwo
 `hostingChanges` sends only fields that differ. Empty nickname or default channel becomes null and clears the bot setting. Empty password, bitrate, or volume does not. Stream on connect is a `<select>`: Not set clears it, a saved station sends `streamId` so the server copies the real URL, and Other address sends `startup`. Do not send the station URL from the browser when a station id is available. The visible station address has no credentials.
 
 ## Database
+
+The optional single-container deployment sets `DATABASE_ENGINE=sqlite` and stores the database at `SQLITE_PATH`. `src/sqlite-pool.js` serializes writes and transactions and adapts the panel's limited MariaDB query syntax; `sql/sqlite.sql` is its initial schema and `PRAGMA user_version` tracks the schema. No MariaDB data is imported. Test both the real SQLite database and the normal MariaDB-compatible code paths when changing queries.
 
 Schema changes are new files `sql/migrations/NNN_name.sql` with the next number. Do not edit a file that is already recorded in `schema_migrations`. `001_schema.sql` creates the base tables. `002_invite_tokens.sql` adds `invite_tokens` and `invite_token_instances`. Startup applies every file that is not recorded yet, in order. It refuses a different checksum and a version this image does not know. The panel no longer converts the old history from before `001_schema` (rows such as `001_baseline`). Startup refuses that database with a message instead.
 
