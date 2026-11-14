@@ -12,7 +12,7 @@ Write everything in English. That includes docs, commit messages, code, comments
 
 Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) and an optional web panel. Remote is `https://github.com/CookieCr2nk/TS3AudioBot-Docker`.
 
-`main` is the default branch. `develop` is the other long-lived branch. A push to `main` publishes the GHCR tag `:main`. A push to `develop` publishes `:develop`. Compose reads `IMAGE_TAG` and defaults to `main`. Do not hardcode `:main` or `:develop` in the Compose files. `BOT_REF` is a git ref of Splamy/TS3AudioBot. The default is `develop`.
+`main` is the default branch. `develop` is the other long-lived branch. A push to `main` publishes the GHCR tag `:main`. A push to `develop` publishes `:develop`. Compose reads `IMAGE_TAG` and defaults to `main`. Do not hardcode `:main` or `:develop` in the Compose files. `BOT_REF` defaults to a pinned Splamy/TS3AudioBot commit compatible with `patches/chinese-commands.patch`; update and test the patch when changing that ref.
 
 Three Compose files. Each one is a complete stack and starts on its own:
 
@@ -26,7 +26,7 @@ Images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}` and `ghcr.io
 
 ## Bot image
 
-The bot is built in the image from the latest `develop` commit of Splamy/TS3AudioBot. Upstream does not publish that build. The README command is `dotnet build --framework net10.0 --configuration Release TS3AudioBot`, and the process is `dotnet TS3AudioBot.dll`. Do not break these limits:
+The bot is built from the pinned upstream commit with `patches/chinese-commands.patch` applied. The build command is `dotnet build --framework net10.0 --configuration Release TS3AudioBot`, and the process is `dotnet TS3AudioBot.dll`. Do not break these limits:
 
 - `/tmp` is a tmpfs of 256 MiB with `exec`. The root filesystem is read-only, so temporary files go there.
 - The runtime stage is `mcr.microsoft.com/dotnet/runtime:10.0` (Ubuntu 24.04). The builder is `mcr.microsoft.com/dotnet/sdk:10.0`. Do not set invariant globalization. Do not go back to the 0.12 single-file tarball. That binary is .NET Core 3.1 and exits when it cannot load the host ICU.

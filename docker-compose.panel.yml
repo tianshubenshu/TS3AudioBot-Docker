@@ -12,6 +12,9 @@ services:
     pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped
+    environment:
+      PANEL_RADIO_URL: http://panel:8080
+      PANEL_RADIO_SECRET: ${PANEL_RADIO_SECRET:-}
     # 58913 is not published. rights.toml treats every API caller as admin,
     # so the port must stay reachable only by containers on the bot network.
     volumes:
@@ -75,6 +78,7 @@ services:
       DB_PASSWORD: ${PANEL_DB_PASSWORD:-ts3panel}
       DB_NAME: ${PANEL_DB_NAME:-ts3panel}
       TOKEN_KEY: ${PANEL_TOKEN_KEY:-dev-only-token-key}
+      PANEL_RADIO_SECRET: ${PANEL_RADIO_SECRET:-}
       ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:-}
       COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-auto}

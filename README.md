@@ -89,6 +89,8 @@ To give other people access, add accounts under **Users** or create an invite li
 
 **Whisper:** On **Connection**, choose **Whisper** to play only to the clients and channels you tick in the lists. Choose **Voice** to play to everyone in the bot's channel.
 
+**Chinese chat commands:** Build the local bot and panel with `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build`. Set `PANEL_RADIO_SECRET` in `.env` to an independent random secret of at least 32 bytes (for example, `openssl rand -hex 32`) and recreate both containers. `!播放 <url>`, `!暂停`, `!停止`, `!下一首`, and `!上一首` use the equivalent English command permissions. `!列出电台 [page]` lists only shared stations, and `!播放电台 <exact name>` plays one; duplicate names must be renamed. The radio bridge remains disabled when the secret is missing or too short. See [the Chinese guide](README.zh-CN.md).
+
 ## Update
 
 The panel is still in development, so an update can change the panel database in a way that cannot be undone. Back it up first:
@@ -224,7 +226,7 @@ docker build -t ts3audiobot-docker:local .
 docker build -t ts3audiobot-panel:local ./panel
 ```
 
-The bot image builds the `develop` branch of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot) (set `BOT_REF` for another ref), because upstream does not publish that build. It runs `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK and starts `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`, with ffmpeg, libopus, and `yt-dlp`. It does not include the upstream web interface.
+The bot image builds a pinned revision of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot), applies the Chinese command changes, and builds with the .NET 10 SDK. An alternate `BOT_REF` must be compatible with the patch. The runtime includes ffmpeg, libopus, and `yt-dlp`. It does not include the upstream web interface.
 
 **Panel.** Node.js, Express, MariaDB, and a React UI built with Vite. To work on it, from `panel/`: `npm install`, then `npm start` and `npm run client`, and open `http://127.0.0.1:5173`. `npm run build` writes the files the image serves. To add a language, add `panel/src/locales/<id>.js` and register it in `panel/src/i18n.js`.
 

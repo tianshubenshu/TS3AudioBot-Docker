@@ -10,6 +10,7 @@ import { ping } from "./db.js";
 import { failureFor } from "./errors.js";
 import { loadSession, wantsJson, wrap } from "./http.js";
 import { applyRequestLanguage, errorText } from "./i18n.js";
+import { radioBridge } from "./radio-bridge.js";
 
 // dirname("/app/") is "/" on Linux. Resolve from this file, which lives in src/.
 export function panelRoot(moduleFile, pathApi = path) {
@@ -95,6 +96,7 @@ export function createApp({ startupError = null } = {}) {
     return app;
   }
 
+  app.use(radioBridge());
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();

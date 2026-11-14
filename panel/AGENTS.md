@@ -72,6 +72,8 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 
 ### JSON API
 
+The bot-only `GET /internal/radio` bridge is separate from the session API. It requires a shared `PANEL_RADIO_SECRET` of at least 32 bytes, returns only shared stations, and does not expose URLs in the list. It resolves an exact name only if unique. The bot uses the same secret over the internal Compose network; the endpoint is disabled without a strong secret. Never expose private stations through it.
+
 `src/api.js` mounts these groups. Writes need the session and `X-CSRF-Token`, except `/login` and `/register`, which run before the session check. The router answers only JSON. A signed-out request gets 401, never a redirect, and `client/src/api.js` then returns the UI to sign-in. Sign out clears the local session even when the request fails.
 
 - `/session`, `/login`, `/register`, `/logout`, `/account`, `/account/password`

@@ -3,7 +3,7 @@
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 
 ARG TARGETARCH
-ARG BOT_REF=develop
+ARG BOT_REF=142e4e2fab19f75b8bd00068134992263b6f0c1c
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
@@ -39,11 +39,14 @@ RUN mkdir -p /opt/yt-dlp && \
     test -s /opt/yt-dlp/yt-dlp && \
     ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp
 
-# Upstream develop has no release build. The README builds net10.0 from a full clone.
+# Pin the upstream source to keep the Chinese command patch reproducible.
+COPY patches/chinese-commands.patch /tmp/chinese-commands.patch
 WORKDIR /src
-RUN git clone --recurse-submodules --shallow-submodules --depth 1 --branch "$BOT_REF" \
-      https://github.com/Splamy/TS3AudioBot.git . && \
+RUN git init && git remote add origin https://github.com/Splamy/TS3AudioBot.git && \
+    git fetch --depth 1 origin "$BOT_REF" && git checkout --detach FETCH_HEAD && \
+    git submodule update --init --recursive --depth 1 && \
     git rev-parse HEAD && \
+    git apply --check /tmp/chinese-commands.patch && git apply /tmp/chinese-commands.patch && \
     dotnet build --framework net10.0 --configuration Release TS3AudioBot && \
     mkdir -p /opt/TS3AudioBot && \
     cp -a TS3AudioBot/bin/Release/net10.0/. /opt/TS3AudioBot/ && \
