@@ -1,4 +1,5 @@
 import de from "./locales/de.js";
+import zh from "./locales/zh.js";
 
 // English is the source language and has no catalog.
 // A new translation is a file in locales/ plus one entry in `languages` and `catalogs`.
@@ -7,11 +8,13 @@ export const LANG_COOKIE = "ts3panel-lang";
 
 export const catalogs = {
   de,
+  zh,
 };
 
 export const languages = [
   { id: "en", name: "English", locale: "en-GB" },
   { id: "de", name: "Deutsch", locale: "de-DE" },
+  { id: "zh", name: "简体中文", locale: "zh-CN" },
 ];
 
 export function applyParams(message, params) {

@@ -1,5 +1,7 @@
 # TS3AudioBot-Docker
 
+[简体中文说明](README.zh-CN.md)
+
 A music bot for TeamSpeak 3, ready to run in Docker, with a web panel to control it from the browser.
 
 It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker image and adds a panel where you can play music and radio streams, manage several bots, and set up who may use them.
@@ -18,7 +20,7 @@ It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker ima
 - **Connection settings** in the panel: server address, nickname, default channel, passwords, bitrate, and volume. You do not need to edit config files.
 - **Whisper or voice**: play to the whole channel, or only to chosen clients and channels.
 - **Accounts**: administrators, users who may create bots, users who only control bots assigned to them, a bot limit per account, and invite links that let people register their own account.
-- **English and German**. The panel follows your browser language, or you can choose one.
+- **English, German, and Simplified Chinese**. The panel follows your browser language, or you can choose one.
 
 ## What you need
 
