@@ -14,7 +14,7 @@
 
 1. 克隆本仓库，进入仓库目录，并复制环境配置：`cp panel/.env.example .env`。
 2. 编辑 `.env`，设置 `PANEL_ADMIN_PASSWORD`、`PANEL_DB_PASSWORD`、`PANEL_DB_ROOT_PASSWORD` 和随机的 `PANEL_TOKEN_KEY`。
-3. 使用 `docker compose -f docker-compose.panel.yml up -d` 启动。
+3. 使用 `docker compose -f docker-compose.panel.yml -f docker-compose.zh.yml up -d --build` 构建并启动中文版面板。已有外部数据库时，将第一个文件换成 `docker-compose.panel-external-db.yml`。
 4. 打开 `http://服务器地址:8080`，使用 `admin` 和设置的面板密码登录。
 5. 在“概览”添加实例，API 地址填 `http://ts3audiobot:58913`。添加或关联机器人，在“连接”填写 TeamSpeak 服务器地址并启动。
 
@@ -26,4 +26,4 @@
 
 面板数据保存在 MariaDB 数据卷中。更新前参照 [英文 README 的备份步骤](README.md#update)备份数据库；机器人配置位于另一个数据卷。`docker compose down` 会保留数据，`down -v` 会删除数据卷。
 
-默认 Compose 拉取项目配置的远程镜像；要使用源码中修改的中文面板，需要自行构建面板镜像并在 Compose 中指定该镜像。机器人 API 的 58913 端口默认不对宿主机开放，请保持该设置。
+默认 Compose 拉取项目配置的远程镜像；上面的附加配置会从本仓库源码构建中文面板。之后启动或更新时请继续指定两个配置文件，并保持 Compose 项目名称不变，以沿用已有数据卷。机器人 API 的 58913 端口默认不对宿主机开放，请保持该设置。

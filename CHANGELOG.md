@@ -6,6 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - The panel supports Simplified Chinese, selected automatically for Chinese browser languages or manually from the language menu
+- `docker-compose.zh.yml` builds the panel from the local checkout when used with a panel Compose file
 
 ### Security
 - Stream, radio, and startup addresses can no longer point at the bot API. `localhost`, `127.x`, `::1`, port 58913, and the host of every registered instance are refused, because the bot would fetch them with full API rights
