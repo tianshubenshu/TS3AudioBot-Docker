@@ -10,7 +10,6 @@ let startupError = null;
 try {
   await migrate();
   const created = await ensureAdmin();
-  if (process.env.SINGLE_CONTAINER === "1") await ensureSingleDefaults();
   if (created.created) {
     console.warn(`[panel] Created admin account. User: ${created.username}`);
     if (created.generatedPassword) {
@@ -18,6 +17,7 @@ try {
       console.warn("[panel] Change it under Account after signing in.");
     }
   }
+  if (process.env.SINGLE_CONTAINER === "1") await ensureSingleDefaults();
 } catch (err) {
   startupError = err;
   console.error("[panel] Startup failed:", err.message);
