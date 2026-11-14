@@ -22,7 +22,7 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
   # Git ref of Splamy/TS3AudioBot compiled into the bot image.
-  BOT_REF: develop
+  BOT_REF: 142e4e2fab19f75b8bd00068134992263b6f0c1c
   # Fix Node.js 20 deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

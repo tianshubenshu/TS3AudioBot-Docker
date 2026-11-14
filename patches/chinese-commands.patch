@@ -28,6 +28,40 @@ index 18d7634..c220035 100644
  	private static string? CmdSync(ExecutionInformation info, string command)
  	{
  		var valueTask = CommandManager.Execute(info, command);
+diff --git a/TS3AudioBot.Tests/ImageUtilTests.cs b/TS3AudioBot.Tests/ImageUtilTests.cs
+new file mode 100644
+index 0000000..cc2950d
+--- /dev/null
++++ b/TS3AudioBot.Tests/ImageUtilTests.cs
+@@ -0,0 +1,28 @@
++using System;
++using System.IO;
++using System.Threading;
++using System.Threading.Tasks;
++using TS3AudioBot.Helper;
++
++namespace TS3AudioBot.Tests;
++
++public class ImageUtilTests
++{
++    [Fact]
++    public async Task ConvertsPngToJpeg()
++    {
++        byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZvoAAAAASUVORK5CYII=");
++        using var input = new MemoryStream(png);
++        using var image = await ImageUtil.ResizeImageSave(input, CancellationToken.None);
++        Assert.Equal("image/jpeg", image.Mime);
++        Assert.Equal(0xff, image.Stream.ReadByte());
++        Assert.Equal(0xd8, image.Stream.ReadByte());
++    }
++
++    [Fact]
++    public async Task RejectsInvalidImage()
++    {
++        using var input = new MemoryStream([1, 2, 3, 4]);
++        await Assert.ThrowsAnyAsync<Exception>(() => ImageUtil.ResizeImageSave(input, CancellationToken.None));
++    }
++}
 diff --git a/TS3AudioBot/ChineseCommands.cs b/TS3AudioBot/ChineseCommands.cs
 new file mode 100644
 index 0000000..027dbd5
@@ -168,6 +202,125 @@ index ee1df85..9182797 100644
  	private static partial Regex CommandNamespaceValidatorReg { get; }
  
  	private readonly Dictionary<string, AliasCommand> aliasPaths = [];
+diff --git a/TS3AudioBot/Helper/ImageUtil.cs b/TS3AudioBot/Helper/ImageUtil.cs
+index 76bcb8d..4103af3 100644
+--- a/TS3AudioBot/Helper/ImageUtil.cs
++++ b/TS3AudioBot/Helper/ImageUtil.cs
+@@ -7,11 +7,7 @@
+ // You should have received a copy of the Open Software License along with this
+ // program. If not, see <https://opensource.org/licenses/OSL-3.0>.
+ 
+-using SixLabors.ImageSharp;
+-using SixLabors.ImageSharp.Formats;
+-using SixLabors.ImageSharp.Formats.Gif;
+-using SixLabors.ImageSharp.Formats.Jpeg;
+-using SixLabors.ImageSharp.Processing;
++using CliWrap;
+ using System;
+ using System.IO;
+ using System.Threading;
+@@ -21,65 +17,43 @@ namespace TS3AudioBot.Helper;
+ 
+ internal static class ImageUtil
+ {
+-	private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
++    private static readonly NLog.Logger Log = NLog.LogManager.GetCurrentClassLogger();
++    public const int ResizeMaxWidthDefault = 320;
+ 
+-	public const int ResizeMaxWidthDefault = 320;
+-
+-	public static async Task<ImageHolder> ResizeImageSave(Stream imgStream, CancellationToken cancellationToken, int resizeMaxWidth = ResizeMaxWidthDefault)
+-	{
+-		try
+-		{
+-			using var limitStream = new LimitStream(imgStream, Limits.MaxImageStreamSize);
+-			using var mem = new MemoryStream();
+-			await limitStream.CopyToAsync(mem, cancellationToken);
+-			mem.Seek(0, SeekOrigin.Begin);
+-			return ResizeImage(mem, resizeMaxWidth);
+-		}
+-		catch (ImageFormatException)
+-		{
+-			Log.Debug("Dropping image because of unknown format");
+-			throw Error.LocalStr("Dropping image because of unknown format"); // TODO
+-		}
+-		catch (EntityTooLargeException)
+-		{
+-			Log.Debug("Dropping image because too large");
+-			throw Error.LocalStr("Dropping image because too large"); // TODO
+-		}
+-	}
+-
+-	private static ImageHolder ResizeImage(Stream imgStream, int resizeMaxWidth)
+-	{
+-		using var img = Image.Load(imgStream);
+-		if (img.Width > Limits.MaxImageDimension || img.Height > Limits.MaxImageDimension
+-			|| img.Width == 0 || img.Height == 0)
+-			throw Error.LocalStr("Dropping image because too large"); // TODO
+-
+-		if (img.Width <= resizeMaxWidth)
+-			return SaveAdaptive(img);
+-
+-		float ratio = img.Width / (float)img.Height;
+-		img.Mutate(x => x.Resize(resizeMaxWidth, (int)(resizeMaxWidth / ratio)));
+-
+-		return SaveAdaptive(img);
+-	}
+-
+-	private static ImageHolder SaveAdaptive(Image img)
+-	{
+-		IImageFormat format;
+-		if (img.Frames.Count > 1)
+-		{
+-			format = GifFormat.Instance;
+-		}
+-		else
+-		{
+-			format = JpegFormat.Instance;
+-		}
+-		var mime = format.DefaultMimeType;
+-		var mem = new MemoryStream();
+-		img.Save(mem, format);
+-		mem.Seek(0, SeekOrigin.Begin);
+-		return new ImageHolder(mem, mime);
+-	}
++    public static async Task<ImageHolder> ResizeImageSave(Stream imgStream, CancellationToken cancellationToken, int resizeMaxWidth = ResizeMaxWidthDefault)
++    {
++        if (resizeMaxWidth < 1 || resizeMaxWidth > Limits.MaxImageDimension)
++            throw Error.LocalStr("Invalid image size");
++        try
++        {
++            using var limitedInput = new LimitStream(imgStream, Limits.MaxImageStreamSize);
++            using var input = new MemoryStream();
++            await limitedInput.CopyToAsync(input, cancellationToken);
++            input.Position = 0;
++            var output = new MemoryStream();
++            try
++            {
++                var boundedOutput = new LimitStream(output, Limits.MaxImageStreamSize);
++                var result = await Cli.Wrap("ffmpeg")
++                    .WithArguments(["-hide_banner", "-loglevel", "error", "-max_pixels", "100000000", "-protocol_whitelist", "pipe", "-i", "pipe:0", "-frames:v", "1", "-vf", $"scale=w='min({resizeMaxWidth},iw)':h=-2", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"])
++                    .WithStandardInputPipe(PipeSource.FromStream(input))
++                    .WithStandardOutputPipe(PipeTarget.ToStream(boundedOutput))
++                    .WithStandardErrorPipe(PipeTarget.Null)
++                    .WithValidation(CommandResultValidation.None)
++                    .ExecuteAsync(cancellationToken);
++                if (result.ExitCode != 0 || output.Length == 0)
++                    throw Error.LocalStr("Dropping image because of unknown format");
++                output.Position = 0;
++                return new ImageHolder(output, "image/jpeg");
++            }
++            catch { output.Dispose(); throw; }
++        }
++        catch (EntityTooLargeException)
++        {
++            Log.Debug("Dropping image because too large");
++            throw Error.LocalStr("Dropping image because too large");
++        }
++    }
+ }
+ 
+ class ImageHolder : IDisposable
 diff --git a/TS3AudioBot/MainCommands.cs b/TS3AudioBot/MainCommands.cs
 index bc71553..2f0a45e 100644
 --- a/TS3AudioBot/MainCommands.cs
@@ -182,15 +335,14 @@ index bc71553..2f0a45e 100644
  	internal static ICommandBag Bag { get; } = new MainCommandsBag();
  
 diff --git a/TS3AudioBot/TS3AudioBot.csproj b/TS3AudioBot/TS3AudioBot.csproj
-index e25f836..81a4e42 100644
+index e25f836..d13e83f 100644
 --- a/TS3AudioBot/TS3AudioBot.csproj
 +++ b/TS3AudioBot/TS3AudioBot.csproj
-@@ -46,7 +46,7 @@
+@@ -46,7 +46,6 @@
  		</PackageReference>
  		<PackageReference Include="Nett" Version="0.15.0" />
  		<PackageReference Include="PlaylistsNET" Version="1.4.1" />
 -		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-+		<PackageReference Include="SixLabors.ImageSharp" Version="3.2.0" />
  	</ItemGroup>
  
  	<ItemGroup>
