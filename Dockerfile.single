@@ -68,8 +68,13 @@ ENV XDG_CACHE_HOME=/tmp/.cache \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # libopus0 ships libopus.so.0. The bot imports libopus.so.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 && \
+ARG USE_TENCENT_APT_MIRROR=0
+RUN if [ "$USE_TENCENT_APT_MIRROR" = "1" ]; then \
+      sed -i -e 's|archive.ubuntu.com|mirrors.tencentyun.com|g' -e 's|security.ubuntu.com|mirrors.tencentyun.com|g' /etc/apt/sources.list.d/ubuntu.sources && \
+      printf 'Acquire::http::Proxy::mirrors.tencentyun.com "DIRECT";\n' > /etc/apt/apt.conf.d/90-tencent-direct; \
+    fi && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 libatomic1 && \
     opus_dir="$(dirname "$(find /usr/lib -name 'libopus.so.0' -print -quit)")" && \
     ln -sfn libopus.so.0 "${opus_dir}/libopus.so" && \
     ldconfig && \
